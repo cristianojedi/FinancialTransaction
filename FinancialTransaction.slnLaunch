@@ -1,0 +1,19 @@
+[
+  {
+    "Name": "Api + Worker + Web",
+    "Projects": [
+      {
+        "Path": "src\\FinancialTransaction.Api\\FinancialTransaction.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\FinancialTransaction.Worker\\FinancialTransaction.Worker.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\FinancialTransaction.Web\\FinancialTransaction.Web.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
