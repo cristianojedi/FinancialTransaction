@@ -49,6 +49,31 @@ public static class DependencyInjection
 
         services.AddSingleton<IEventPublisher, KafkaEventPublisher>();
 
+        services.AddSingleton<IConsumer<string, string>>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<KafkaOptions>>().Value;
+
+            if (string.IsNullOrWhiteSpace(options.BootstrapServers))
+            {
+                throw new InvalidOperationException("A configuração 'Kafka:BootstrapServers' não foi definida.");
+            }
+
+            if (string.IsNullOrWhiteSpace(options.ConsumerGroupId))
+            {
+                throw new InvalidOperationException("A configuração 'Kafka:ConsumerGroupId' não foi definida.");
+            }
+
+            var consumerConfig = new ConsumerConfig
+            {
+                BootstrapServers = options.BootstrapServers,
+                GroupId = options.ConsumerGroupId,
+                AutoOffsetReset = AutoOffsetReset.Earliest,
+                EnableAutoCommit = false,
+            };
+
+            return new ConsumerBuilder<string, string>(consumerConfig).Build();
+        });
+
         return services;
     }
 }
