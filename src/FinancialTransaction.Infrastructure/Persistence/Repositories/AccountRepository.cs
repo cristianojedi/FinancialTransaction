@@ -18,4 +18,7 @@ public class AccountRepository : IAccountRepository
 
     public async Task<Account?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         await _dbContext.Accounts.FirstOrDefaultAsync(account => account.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Account>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        await _dbContext.Accounts.ToListAsync(cancellationToken);
 }

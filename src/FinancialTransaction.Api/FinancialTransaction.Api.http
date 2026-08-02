@@ -1,1 +1,80 @@
 @FinancialTransaction.Api_HostAddress = http://localhost:5209
+
+### Ao rodar a API em Development, um seeder cria automaticamente as contas
+### ACC-001 e ACC-002 (se a tabela accounts estiver vazia). Use o endpoint
+### abaixo para descobrir os IDs gerados e substituir nos exemplos seguintes.
+
+### Listar todas as contas (200 OK)
+GET {{FinancialTransaction.Api_HostAddress}}/api/accounts
+
+### Resposta esperada (200 OK):
+# [
+#   { "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "number": "ACC-001" },
+#   { "id": "7b2b1c9a-1234-4a2b-9abc-1234567890ab", "number": "ACC-002" }
+# ]
+
+### Criar transação (201 Created)
+POST {{FinancialTransaction.Api_HostAddress}}/api/transactions
+Content-Type: application/json
+
+{
+  "sourceAccountId": "11111111-1111-1111-1111-111111111111",
+  "destinationAccountId": "22222222-2222-2222-2222-222222222222",
+  "amount": 250.50
+}
+
+### Resposta esperada (201 Created):
+# {
+#   "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+#   "sourceAccountId": "11111111-1111-1111-1111-111111111111",
+#   "destinationAccountId": "22222222-2222-2222-2222-222222222222",
+#   "amount": 250.50,
+#   "status": "Pending",
+#   "failureReason": null
+# }
+# Header Location: /api/transactions/3fa85f64-5717-4562-b3fc-2c963f66afa6
+
+### Criar transação com conta inexistente (404 Not Found)
+POST {{FinancialTransaction.Api_HostAddress}}/api/transactions
+Content-Type: application/json
+
+{
+  "sourceAccountId": "99999999-9999-9999-9999-999999999999",
+  "destinationAccountId": "22222222-2222-2222-2222-222222222222",
+  "amount": 100
+}
+
+### Resposta esperada (404 Not Found):
+# {
+#   "title": "Recurso não encontrado",
+#   "status": 404,
+#   "detail": "Conta de origem '99999999-9999-9999-9999-999999999999' não encontrada.",
+#   "instance": "/api/transactions"
+# }
+
+### Criar transação com valor inválido (400 Bad Request)
+POST {{FinancialTransaction.Api_HostAddress}}/api/transactions
+Content-Type: application/json
+
+{
+  "sourceAccountId": "11111111-1111-1111-1111-111111111111",
+  "destinationAccountId": "22222222-2222-2222-2222-222222222222",
+  "amount": 0
+}
+
+### Resposta esperada (400 Bad Request):
+# {
+#   "title": "Requisição inválida",
+#   "status": 400,
+#   "detail": "O valor da transação deve ser maior que zero.",
+#   "instance": "/api/transactions"
+# }
+
+### Consultar transação por Id (200 OK)
+GET {{FinancialTransaction.Api_HostAddress}}/api/transactions/3fa85f64-5717-4562-b3fc-2c963f66afa6
+
+### Consultar transação inexistente (404 Not Found)
+GET {{FinancialTransaction.Api_HostAddress}}/api/transactions/00000000-0000-0000-0000-000000000000
+
+### Listar todas as transações (200 OK)
+GET {{FinancialTransaction.Api_HostAddress}}/api/transactions
