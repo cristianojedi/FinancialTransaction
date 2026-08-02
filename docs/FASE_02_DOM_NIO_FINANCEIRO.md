@@ -48,11 +48,11 @@ Criar testes unitários para:
 
 ### Definition of Done
 
-- [ ] domínio implementado;
-- [ ] invariantes implementadas;
-- [ ] testes unitários;
-- [ ] nenhum acesso a banco;
-- [ ] nenhum Kafka.
+- [x] domínio implementado;
+- [x] invariantes implementadas;
+- [x] testes unitários;
+- [x] nenhum acesso a banco;
+- [x] nenhum Kafka.
 
 ### Prompt para IA
 
@@ -115,5 +115,39 @@ Não implemente:
 
 Ao final, explique cada classe criada e mostre como executar os testes.
 ```
+
+---
+
+## Fase 2 implementada
+
+**Conceitos (resumo, conforme pedido pelo prompt da fase):**
+
+1. **Entidade** — objeto com identidade própria (`Id`) que persiste ao longo do tempo, mesmo que seus atributos mudem. `Account` e `FinancialTransaction` são entidades.
+2. **Value Object** — não usei um explícito nesta fase (mantive `Amount` como `decimal` puro para não expandir escopo). Um candidato natural seria `Money`, mas isso fica para quando a persistência (Fase 3) exigir formatação/moeda.
+3. **Regra de negócio** — restrição que protege a consistência do domínio (ex.: valor > 0). Fica encapsulada nos métodos de fábrica/transição, nunca em camadas externas.
+4. **Por que no Domain** — evita que regras financeiras vazem para Api/Infrastructure, garantindo que qualquer forma de criar/alterar uma transação (HTTP, Worker, teste) passe pelas mesmas invariantes.
+5. **Estados da transação** — enum `TransactionStatus` (Pending → Processing → Processed/Failed), com transições validadas dentro do próprio agregado.
+
+**Estrutura criada** em `src/FinancialTransaction.Domain`:
+- `Common/Entity.cs`, `Common/AggregateRoot.cs`, `Common/IDomainEvent.cs` — infraestrutura mínima de domínio.
+- `Exceptions/DomainException.cs` — exceção para violação de invariantes.
+- `Enums/TransactionStatus.cs` — Pending, Processing, Processed, Failed.
+- `Entities/Account.cs` — entidade simples com número de conta.
+- `Entities/FinancialTransaction.cs` — agregado raiz com `Create`, `StartProcessing`, `CompleteProcessing`, `FailProcessing`, validando todas as invariantes mínimas e disparando os eventos.
+- `Events/TransactionCreated.cs`, `TransactionProcessed.cs`, `TransactionFailed.cs`.
+
+**Testes** em `tests/FinancialTransaction.UnitTests/Domain/` (`AccountTests.cs`, `FinancialTransactionTests.cs`), cobrindo: valor > 0, contas diferentes, início como Pending, transições válidas e inválidas, estados finais não retornando a Pending.
+
+Nenhum acesso a banco, Kafka ou EF Core foi adicionado — escopo restrito à Fase 2.
+
+**Validação:**
+
+```bash
+dotnet build FinancialTransaction.slnx   # compilação com êxito
+dotnet test tests/FinancialTransaction.UnitTests/FinancialTransaction.UnitTests.csproj
+# Aprovado! 14/14, 0 falhas
+```
+
+Conforme instrução do prompt da fase, não avancei para a Fase 3 (PostgreSQL/EF Core).
 
 ---
