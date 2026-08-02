@@ -20,4 +20,11 @@ public class FinancialTransactionRepository : IFinancialTransactionRepository
 
     public async Task<IReadOnlyList<Domain.Entities.FinancialTransaction>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await _dbContext.Transactions.AsNoTracking().ToListAsync(cancellationToken);
+
+    public Task DeleteAsync(Domain.Entities.FinancialTransaction transaction, CancellationToken cancellationToken = default)
+    {
+        _dbContext.Transactions.Remove(transaction);
+
+        return Task.CompletedTask;
+    }
 }

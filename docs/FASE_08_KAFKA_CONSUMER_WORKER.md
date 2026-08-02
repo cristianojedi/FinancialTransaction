@@ -151,3 +151,41 @@ Não implementado nesta fase (propositalmente, conforme escopo): OpenTelemetry, 
 Validado manualmente nesta fase: build (`dotnet build FinancialTransaction.slnx`), `dotnet test` dos testes unitários (30 aprovados) e o fluxo real ponta a ponta — `POST /api/transactions` → `Pending` → Worker consumiu do Kafka → `GET /api/transactions/{id}` retornou `Processed`.
 
 ---
+
+## Extra — Grid de transações e exclusão no Blazor
+
+Fora do escopo original desta fase, foi adicionada uma evolução no frontend para dar visibilidade ao fluxo `Pending → Processing → Processed/Failed` processado pelo Worker: uma grid paginada de transações na tela inicial, com um campo de data de cadastro e ação de exclusão.
+
+### O que foi implementado
+
+- **Domain (`FinancialTransaction.cs`)** — novo campo `CreatedAtUtc` (`DateTime`, `private set`), atribuído uma única vez no construtor privado no momento da criação (`Create`). Segue o mesmo padrão imutável de `Status`.
+- **Infrastructure**:
+  - `FinancialTransactionConfiguration` — mapeamento `IsRequired()` para `CreatedAtUtc` e um índice (`HasIndex`) para suportar a ordenação da grid.
+  - Migration `20260802225450_AddCreatedAtUtcToTransactions` — adiciona a coluna `CreatedAtUtc` (`timestamp with time zone`, `NOT NULL`) e o índice `IX_transactions_CreatedAtUtc` na tabela `transactions`.
+  - `FinancialTransactionRepository` — novo método `DeleteAsync(transaction, ct)`, que apenas marca a entidade para remoção (`_dbContext.Transactions.Remove(...)`); o `SaveChanges` continua centralizado no `IUnitOfWork`, chamado pela camada de aplicação.
+- **Application**:
+  - `IFinancialTransactionRepository.DeleteAsync` e `ITransactionService.DeleteAsync` — novo caso de uso "excluir transação": busca a transação (`NotFoundException` se não existir), remove via repositório e persiste com `IUnitOfWork.SaveChangesAsync`.
+  - `TransactionResponse` — ganhou o campo `CreatedAtUtc`, mapeado em `FromDomain`.
+- **Api (`TransactionEndpoints.cs`)** — novo endpoint `DELETE /api/transactions/{id}`, retornando `204 No Content` em caso de sucesso e `404` (via `GlobalExceptionHandler` + `NotFoundException`) quando a transação não existe.
+- **Web (Blazor + MudBlazor)**:
+  - `IFinancialApiClient`/`FinancialApiClient` — novos métodos `GetTransactionsAsync()` (`GET /api/transactions`) e `DeleteTransactionAsync(id)` (`DELETE /api/transactions/{id}`), seguindo o mesmo padrão de tratamento de erro (`ApiException`) já usado pelos demais métodos.
+  - `Home.razor` — abaixo do formulário de criação, uma `MudDataGrid<TransactionResponse>` paginada (paginação nativa do componente), ordenada por `CreatedAtUtc` de forma decrescente (mais recentes primeiro), com colunas de data de cadastro, conta origem, conta destino, valor (formatado em `C2`) e status. A última coluna traz um `MudIconButton` de exclusão que abre um diálogo de confirmação (`IDialogService.ShowMessageBoxAsync`) antes de chamar a API; a grid é recarregada automaticamente após criar ou excluir uma transação, com feedback via `Snackbar`.
+- **Testes unitários** — novos casos para `TransactionService.DeleteAsync` (exclusão com sucesso e transação inexistente lançando `NotFoundException`), usando os fakes em memória já existentes.
+
+### Como validar
+
+1. Suba a infraestrutura, a API e o Blazor:
+   ```bash
+   docker compose up -d
+   dotnet run --project src/FinancialTransaction.Api
+   dotnet run --project src/FinancialTransaction.Web
+   ```
+2. Acesse a tela inicial do Blazor: abaixo do formulário de criação, a grid "Transações" lista os registros existentes, ordenados pela data de cadastro mais recente.
+3. Crie uma nova transação pelo formulário — ela deve aparecer automaticamente no topo da grid, com a data de cadastro preenchida.
+4. Clique no ícone de exclusão de uma linha, confirme no diálogo — a transação deve sumir da grid e uma mensagem de sucesso deve aparecer via Snackbar.
+5. Tente excluir a mesma transação diretamente na API (`DELETE /api/transactions/{id}` de um Id já excluído) e confirme o retorno `404`.
+6. Rode os testes automatizados: `dotnet test tests/FinancialTransaction.UnitTests` (32 testes aprovados após esta etapa).
+
+Validado manualmente: build completo da solução, `dotnet test` (32 aprovados) e teste end-to-end via navegador (Playwright) — criação de transação refletida na grid com data de cadastro correta, exclusão com confirmação funcionando e grid atualizada em tempo real.
+
+---

@@ -32,10 +32,15 @@ public class FinancialTransactionConfiguration : IEntityTypeConfiguration<Domain
         builder.Property(transaction => transaction.FailureReason)
             .HasMaxLength(500);
 
+        builder.Property(transaction => transaction.CreatedAtUtc)
+            .IsRequired();
+
         builder.Ignore(transaction => transaction.DomainEvents);
 
         builder.HasIndex(transaction => transaction.SourceAccountId);
 
         builder.HasIndex(transaction => transaction.DestinationAccountId);
+
+        builder.HasIndex(transaction => transaction.CreatedAtUtc);
     }
 }

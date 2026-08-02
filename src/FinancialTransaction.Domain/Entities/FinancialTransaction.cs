@@ -17,6 +17,8 @@ public class FinancialTransaction : AggregateRoot
 
     public string? FailureReason { get; private set; }
 
+    public DateTime CreatedAtUtc { get; private set; }
+
     private FinancialTransaction(Guid id, Guid sourceAccountId, Guid destinationAccountId, decimal amount)
         : base(id)
     {
@@ -24,6 +26,7 @@ public class FinancialTransaction : AggregateRoot
         DestinationAccountId = destinationAccountId;
         Amount = amount;
         Status = TransactionStatus.Pending;
+        CreatedAtUtc = DateTime.UtcNow;
     }
 
     public static FinancialTransaction Create(Guid sourceAccountId, Guid destinationAccountId, decimal amount)

@@ -7,4 +7,6 @@ public interface IFinancialTransactionRepository
     Task<Domain.Entities.FinancialTransaction?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Domain.Entities.FinancialTransaction>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(Domain.Entities.FinancialTransaction transaction, CancellationToken cancellationToken = default);
 }

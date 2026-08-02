@@ -133,4 +133,24 @@ public class TransactionServiceTests
 
         Assert.Equal(2, result.Count);
     }
+
+    [Fact]
+    public async Task DeleteAsync_com_id_existente_remove_transacao()
+    {
+        var source = Account.Create("ACC-001");
+        var destination = Account.Create("ACC-002");
+        await _accountRepository.AddAsync(source);
+        await _accountRepository.AddAsync(destination);
+        var created = await _sut.CreateAsync(new CreateTransactionRequest(source.Id, destination.Id, 10m));
+
+        await _sut.DeleteAsync(created.Id);
+
+        Assert.Null(await _transactionRepository.GetByIdAsync(created.Id));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_com_id_inexistente_lanca_NotFoundException()
+    {
+        await Assert.ThrowsAsync<NotFoundException>(() => _sut.DeleteAsync(Guid.NewGuid()));
+    }
 }

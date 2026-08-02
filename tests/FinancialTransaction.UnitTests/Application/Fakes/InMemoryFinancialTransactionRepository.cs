@@ -18,4 +18,10 @@ public class InMemoryFinancialTransactionRepository : IFinancialTransactionRepos
 
     public Task<IReadOnlyList<TransactionEntity>> GetAllAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<TransactionEntity>>(_transactions.Values.ToList());
+
+    public Task DeleteAsync(TransactionEntity transaction, CancellationToken cancellationToken = default)
+    {
+        _transactions.Remove(transaction.Id);
+        return Task.CompletedTask;
+    }
 }

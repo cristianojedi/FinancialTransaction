@@ -6,4 +6,5 @@ public record TransactionResponse(
     Guid DestinationAccountId,
     decimal Amount,
     string Status,
-    string? FailureReason);
+    string? FailureReason,
+    DateTime CreatedAtUtc);

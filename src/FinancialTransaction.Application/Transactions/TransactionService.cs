@@ -64,4 +64,13 @@ public class TransactionService : ITransactionService
 
         return transactions.Select(TransactionResponse.FromDomain).ToList();
     }
+
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var transaction = await _transactionRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException($"Transação '{id}' não encontrada.");
+
+        await _transactionRepository.DeleteAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
 }

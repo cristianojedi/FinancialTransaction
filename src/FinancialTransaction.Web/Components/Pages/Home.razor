@@ -2,6 +2,7 @@
 @using System.Globalization
 @inject IFinancialApiClient ApiClient
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Processamento de Transação</PageTitle>
 
@@ -64,6 +65,45 @@
     }
 </MudPaper>
 
+<MudPaper Class="pa-6 mt-6" Elevation="2">
+    <MudText Typo="Typo.h5" Class="mb-4">Transações</MudText>
+
+    @if (_gridError is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_gridError</MudAlert>
+    }
+    else
+    {
+        <MudDataGrid T="TransactionResponse" Items="_transactions" Loading="_isLoadingTransactions"
+                     SortMode="SortMode.Single" Filterable="false" Groupable="false">
+            <Columns>
+                <PropertyColumn Property="x => x.CreatedAtUtc" Title="Data de cadastro" InitialDirection="SortDirection.Descending">
+                    <CellTemplate>
+                        @context.Item.CreatedAtUtc.ToLocalTime().ToString("g", _ptBr)
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.SourceAccountId" Title="Conta origem" />
+                <PropertyColumn Property="x => x.DestinationAccountId" Title="Conta destino" />
+                <PropertyColumn Property="x => x.Amount" Title="Valor">
+                    <CellTemplate>
+                        @context.Item.Amount.ToString("C2", _ptBr)
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.Status" Title="Status" />
+                <TemplateColumn Title="Ações" Sortable="false">
+                    <CellTemplate>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                       OnClick="() => DeleteTransactionAsync(context.Item)" />
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="TransactionResponse" />
+            </PagerContent>
+        </MudDataGrid>
+    }
+</MudPaper>
+
 @code {
     private static readonly CultureInfo _ptBr = new("pt-BR");
 
@@ -74,6 +114,10 @@
     private string? _submitError;
     private bool _isSubmitting;
     private TransactionResponse? _result;
+
+    private IReadOnlyList<TransactionResponse> _transactions = [];
+    private bool _isLoadingTransactions;
+    private string? _gridError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,6 +132,58 @@
         catch (HttpRequestException)
         {
             _loadError = "Não foi possível conectar à API. Verifique se ela está em execução.";
+        }
+
+        await LoadTransactionsAsync();
+    }
+
+    private async Task LoadTransactionsAsync()
+    {
+        _isLoadingTransactions = true;
+        try
+        {
+            _transactions = await ApiClient.GetTransactionsAsync();
+            _gridError = null;
+        }
+        catch (ApiException ex)
+        {
+            _gridError = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _gridError = "Não foi possível conectar à API. Verifique se ela está em execução.";
+        }
+        finally
+        {
+            _isLoadingTransactions = false;
+        }
+    }
+
+    private async Task DeleteTransactionAsync(TransactionResponse transaction)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Excluir transação",
+            $"Deseja realmente excluir a transação '{transaction.Id}'?",
+            yesText: "Excluir", cancelText: "Cancelar");
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await ApiClient.DeleteTransactionAsync(transaction.Id);
+            Snackbar.Add("Transação excluída com sucesso.", Severity.Success);
+            await LoadTransactionsAsync();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Não foi possível conectar à API. Verifique se ela está em execução.", Severity.Error);
         }
     }
 
@@ -127,6 +223,7 @@
 
             _result = await ApiClient.CreateTransactionAsync(request);
             Snackbar.Add("Transação criada com sucesso.", Severity.Success);
+            await LoadTransactionsAsync();
         }
         catch (ApiException ex)
         {

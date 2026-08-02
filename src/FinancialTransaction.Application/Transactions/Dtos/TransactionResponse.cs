@@ -6,7 +6,8 @@ public record TransactionResponse(
     Guid DestinationAccountId,
     decimal Amount,
     string Status,
-    string? FailureReason)
+    string? FailureReason,
+    DateTime CreatedAtUtc)
 {
     public static TransactionResponse FromDomain(Domain.Entities.FinancialTransaction transaction) =>
         new(
@@ -15,5 +16,6 @@ public record TransactionResponse(
             transaction.DestinationAccountId,
             transaction.Amount,
             transaction.Status.ToString(),
-            transaction.FailureReason);
+            transaction.FailureReason,
+            transaction.CreatedAtUtc);
 }

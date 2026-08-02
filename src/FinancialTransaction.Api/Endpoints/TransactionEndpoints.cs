@@ -27,6 +27,12 @@ public static class TransactionEndpoints
             .WithSummary("Lista todas as transações financeiras")
             .Produces<IReadOnlyList<TransactionResponse>>(StatusCodes.Status200OK);
 
+        group.MapDelete("/{id:guid}", DeleteTransactionAsync)
+            .WithName("DeleteTransaction")
+            .WithSummary("Exclui uma transação financeira pelo Id")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
     }
 
@@ -57,5 +63,15 @@ public static class TransactionEndpoints
         var response = await transactionService.GetAllAsync(cancellationToken);
 
         return Results.Ok(response);
+    }
+
+    private static async Task<IResult> DeleteTransactionAsync(
+        Guid id,
+        ITransactionService transactionService,
+        CancellationToken cancellationToken)
+    {
+        await transactionService.DeleteAsync(id, cancellationToken);
+
+        return Results.NoContent();
     }
 }
