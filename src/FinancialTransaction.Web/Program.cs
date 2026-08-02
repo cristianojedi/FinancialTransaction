@@ -1,10 +1,22 @@
 using FinancialTransaction.Web.Components;
+using FinancialTransaction.Web.Services;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddMudServices();
+
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"]
+    ?? throw new InvalidOperationException("Configuração 'Api:BaseUrl' não encontrada.");
+
+builder.Services.AddHttpClient<IFinancialApiClient, FinancialApiClient>(client =>
+{
+    client.BaseAddress = new Uri(apiBaseUrl);
+});
 
 var app = builder.Build();
 

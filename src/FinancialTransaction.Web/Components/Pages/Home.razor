@@ -1,5 +1,151 @@
-﻿@page "/"
+@page "/"
+@using System.Globalization
+@inject IFinancialApiClient ApiClient
+@inject ISnackbar Snackbar
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Processamento de Transação</PageTitle>
 
-<h1>FinancialTransaction</h1>
+<MudPaper Class="pa-6" Elevation="2">
+    <MudText Typo="Typo.h5" Class="mb-4">Processamento de Transação</MudText>
+
+    @if (_loadError is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+    }
+    else if (_accounts is null)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else
+    {
+        <MudForm @ref="_form" Model="_model">
+            <MudSelect T="Guid?" Label="Conta origem" @bind-Value="_model.SourceAccountId"
+                       Required="true" RequiredError="Selecione a conta origem.">
+                @foreach (var account in _accounts)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)account.Id)">@account.Number</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSelect T="Guid?" Label="Conta destino" @bind-Value="_model.DestinationAccountId"
+                       Required="true" RequiredError="Selecione a conta destino." Class="mt-4">
+                @foreach (var account in _accounts)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)account.Id)">@account.Number</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudNumericField T="decimal?" Label="Valor" @bind-Value="_model.Amount" Class="mt-4"
+                              Adornment="Adornment.Start" AdornmentText="R$" Format="N2" Culture="@_ptBr"
+                              Min="0.01m" Required="true" RequiredError="Informe o valor." />
+
+            @if (_submitError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4">@_submitError</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
+                       OnClick="SubmitAsync" Disabled="_isSubmitting">
+                @if (_isSubmitting)
+                {
+                    <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                }
+                CRIAR TRANSAÇÃO
+            </MudButton>
+        </MudForm>
+
+        @if (_result is not null)
+        {
+            <MudPaper Class="pa-4 mt-6" Outlined="true">
+                <MudText><b>ID:</b> @_result.Id</MudText>
+                <MudText><b>Status:</b> @_result.Status</MudText>
+            </MudPaper>
+        }
+    }
+</MudPaper>
+
+@code {
+    private static readonly CultureInfo _ptBr = new("pt-BR");
+
+    private MudForm? _form;
+    private readonly TransactionFormModel _model = new();
+    private IReadOnlyList<AccountResponse>? _accounts;
+    private string? _loadError;
+    private string? _submitError;
+    private bool _isSubmitting;
+    private TransactionResponse? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _accounts = await ApiClient.GetAccountsAsync();
+        }
+        catch (ApiException ex)
+        {
+            _loadError = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _loadError = "Não foi possível conectar à API. Verifique se ela está em execução.";
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitError = null;
+        _result = null;
+
+        if (_form is null)
+        {
+            return;
+        }
+
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        if (_model.SourceAccountId == _model.DestinationAccountId)
+        {
+            _submitError = "A conta origem deve ser diferente da conta destino.";
+            return;
+        }
+
+        if (_model.Amount is null || _model.Amount <= 0)
+        {
+            _submitError = "O valor deve ser maior que zero.";
+            return;
+        }
+
+        _isSubmitting = true;
+        try
+        {
+            var request = new CreateTransactionRequest(
+                _model.SourceAccountId!.Value, _model.DestinationAccountId!.Value, _model.Amount!.Value);
+
+            _result = await ApiClient.CreateTransactionAsync(request);
+            Snackbar.Add("Transação criada com sucesso.", Severity.Success);
+        }
+        catch (ApiException ex)
+        {
+            _submitError = ex.Message;
+        }
+        catch (HttpRequestException)
+        {
+            _submitError = "Não foi possível conectar à API. Verifique se ela está em execução.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class TransactionFormModel
+    {
+        public Guid? SourceAccountId { get; set; }
+        public Guid? DestinationAccountId { get; set; }
+        public decimal? Amount { get; set; }
+    }
+}
