@@ -2,6 +2,7 @@ using FinancialTransaction.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Testcontainers.Kafka;
 using Testcontainers.PostgreSql;
 
 namespace FinancialTransaction.IntegrationTests.Api;
@@ -14,15 +15,20 @@ public class TransactionsApiFixture : IAsyncLifetime
         .WithPassword("financialtransaction")
         .Build();
 
+    private readonly KafkaContainer _kafkaContainer = new KafkaBuilder("confluentinc/cp-kafka:7.7.1")
+        .Build();
+
     private WebApplicationFactory<Program>? _factory;
 
     public async Task InitializeAsync()
     {
-        await _container.StartAsync();
+        await Task.WhenAll(_container.StartAsync(), _kafkaContainer.StartAsync());
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("ConnectionStrings:PostgreSql", _container.GetConnectionString());
+            builder.UseSetting("Kafka:BootstrapServers", _kafkaContainer.GetBootstrapAddress());
+            builder.UseSetting("Kafka:TransactionsTopic", "financial.transactions.created");
         });
 
         await using var dbContext = CreateDbContext();
@@ -37,6 +43,7 @@ public class TransactionsApiFixture : IAsyncLifetime
         }
 
         await _container.DisposeAsync();
+        await _kafkaContainer.DisposeAsync();
     }
 
     public HttpClient CreateClient() => _factory!.CreateClient();

@@ -1,3 +1,4 @@
+using FinancialTransaction.Application.Abstractions.Messaging;
 using FinancialTransaction.Application.Abstractions.Persistence;
 using FinancialTransaction.Application.Common.Exceptions;
 using FinancialTransaction.Application.Transactions.Dtos;
@@ -9,15 +10,18 @@ public class TransactionService : ITransactionService
     private readonly IAccountRepository _accountRepository;
     private readonly IFinancialTransactionRepository _transactionRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IEventPublisher _eventPublisher;
 
     public TransactionService(
         IAccountRepository accountRepository,
         IFinancialTransactionRepository transactionRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IEventPublisher eventPublisher)
     {
         _accountRepository = accountRepository;
         _transactionRepository = transactionRepository;
         _unitOfWork = unitOfWork;
+        _eventPublisher = eventPublisher;
     }
 
     public async Task<TransactionResponse> CreateAsync(CreateTransactionRequest request, CancellationToken cancellationToken = default)
@@ -35,6 +39,13 @@ public class TransactionService : ITransactionService
 
         await _transactionRepository.AddAsync(transaction, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        foreach (var domainEvent in transaction.DomainEvents)
+        {
+            await _eventPublisher.PublishAsync(domainEvent, cancellationToken);
+        }
+
+        transaction.ClearDomainEvents();
 
         return TransactionResponse.FromDomain(transaction);
     }

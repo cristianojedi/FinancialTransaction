@@ -3,6 +3,7 @@ using FinancialTransaction.Application.Transactions;
 using FinancialTransaction.Application.Transactions.Dtos;
 using FinancialTransaction.Domain.Entities;
 using FinancialTransaction.Domain.Enums;
+using FinancialTransaction.Domain.Events;
 using FinancialTransaction.Domain.Exceptions;
 using FinancialTransaction.UnitTests.Application.Fakes;
 
@@ -12,11 +13,12 @@ public class TransactionServiceTests
 {
     private readonly InMemoryAccountRepository _accountRepository = new();
     private readonly InMemoryFinancialTransactionRepository _transactionRepository = new();
+    private readonly NoOpEventPublisher _eventPublisher = new();
     private readonly ITransactionService _sut;
 
     public TransactionServiceTests()
     {
-        _sut = new TransactionService(_accountRepository, _transactionRepository, new NoOpUnitOfWork());
+        _sut = new TransactionService(_accountRepository, _transactionRepository, new NoOpUnitOfWork(), _eventPublisher);
     }
 
     [Fact]
@@ -35,6 +37,24 @@ public class TransactionServiceTests
         Assert.Equal(150m, response.Amount);
         Assert.Equal(nameof(TransactionStatus.Pending), response.Status);
         Assert.NotNull(await _transactionRepository.GetByIdAsync(response.Id));
+    }
+
+    [Fact]
+    public async Task CreateAsync_com_contas_validas_publica_evento_TransactionCreated()
+    {
+        var source = Account.Create("ACC-001");
+        var destination = Account.Create("ACC-002");
+        await _accountRepository.AddAsync(source);
+        await _accountRepository.AddAsync(destination);
+
+        var response = await _sut.CreateAsync(new CreateTransactionRequest(source.Id, destination.Id, 150m));
+
+        var publishedEvent = Assert.Single(_eventPublisher.PublishedEvents);
+        var transactionCreated = Assert.IsType<TransactionCreated>(publishedEvent);
+        Assert.Equal(response.Id, transactionCreated.TransactionId);
+        Assert.Equal(source.Id, transactionCreated.SourceAccountId);
+        Assert.Equal(destination.Id, transactionCreated.DestinationAccountId);
+        Assert.Equal(150m, transactionCreated.Amount);
     }
 
     [Fact]
