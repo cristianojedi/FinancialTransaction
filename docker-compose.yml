@@ -15,6 +15,60 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - financialtransaction-network
+
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: financialtransaction_kafka
+    environment:
+      # KRaft: Kafka atua como broker e controller no mesmo processo, sem Zookeeper.
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      # Listener interno (rede Docker, usado por Kafka UI e futuras Api/Worker) e externo (host, para debug local).
+      KAFKA_LISTENERS: PLAINTEXT://kafka:19092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    ports:
+      - "9092:9092"
+    volumes:
+      - financialtransaction-kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:19092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - financialtransaction-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: financialtransaction_kafka_ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: financialtransaction
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
+      DYNAMIC_CONFIG_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - financialtransaction-network
+
+networks:
+  financialtransaction-network:
+    name: financialtransaction-network
 
 volumes:
   financialtransaction-postgres-data:
+  financialtransaction-kafka-data:
