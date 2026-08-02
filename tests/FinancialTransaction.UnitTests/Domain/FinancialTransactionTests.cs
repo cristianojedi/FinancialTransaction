@@ -12,9 +12,9 @@ public class FinancialTransactionTests
         var sourceAccountId = Guid.NewGuid();
         var destinationAccountId = Guid.NewGuid();
 
-        var act = () => DomainEntities.FinancialTransaction.Create(sourceAccountId, destinationAccountId, 0m);
+        DomainEntities.FinancialTransaction act() => DomainEntities.FinancialTransaction.Create(sourceAccountId, destinationAccountId, 0m);
 
-        Assert.Throws<DomainException>(act);
+        Assert.Throws<DomainException>((Func<DomainEntities.FinancialTransaction>)act);
     }
 
     [Fact]
@@ -22,9 +22,9 @@ public class FinancialTransactionTests
     {
         var accountId = Guid.NewGuid();
 
-        var act = () => DomainEntities.FinancialTransaction.Create(accountId, accountId, 100m);
+        DomainEntities.FinancialTransaction act() => DomainEntities.FinancialTransaction.Create(accountId, accountId, 100m);
 
-        Assert.Throws<DomainException>(act);
+        Assert.Throws<DomainException>((Func<DomainEntities.FinancialTransaction>)act);
     }
 
     [Fact]

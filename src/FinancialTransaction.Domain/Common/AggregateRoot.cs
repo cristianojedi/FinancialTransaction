@@ -1,12 +1,8 @@
 namespace FinancialTransaction.Domain.Common;
 
-public abstract class AggregateRoot : Entity
+public abstract class AggregateRoot(Guid id) : Entity(id)
 {
     private readonly List<IDomainEvent> _domainEvents = [];
-
-    protected AggregateRoot(Guid id) : base(id)
-    {
-    }
 
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
