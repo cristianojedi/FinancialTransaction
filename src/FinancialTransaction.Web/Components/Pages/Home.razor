@@ -1,5 +1,6 @@
 @page "/"
 @using System.Globalization
+@implements IDisposable
 @inject IFinancialApiClient ApiClient
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -59,7 +60,19 @@
         {
             <MudPaper Class="pa-4 mt-6" Outlined="true">
                 <MudText><b>ID:</b> @_result.Id</MudText>
-                <MudText><b>Status:</b> @_result.Status</MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-1">
+                    <MudText><b>Status:</b></MudText>
+                    <MudChip T="string" Color="@StatusColor(_result.Status)" Size="Size.Small">@_result.Status</MudChip>
+                    @if (_isPolling)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                        <MudText Typo="Typo.caption">Consultando status...</MudText>
+                    }
+                </MudStack>
+                @if (_result.FailureReason is not null)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Error" Class="mt-1">@_result.FailureReason</MudText>
+                }
             </MudPaper>
         }
     }
@@ -89,7 +102,11 @@
                         @context.Item.Amount.ToString("C2", _ptBr)
                     </CellTemplate>
                 </PropertyColumn>
-                <PropertyColumn Property="x => x.Status" Title="Status" />
+                <PropertyColumn Property="x => x.Status" Title="Status">
+                    <CellTemplate>
+                        <MudChip T="string" Color="@StatusColor(context.Item.Status)" Size="Size.Small">@context.Item.Status</MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
                 <TemplateColumn Title="Ações" Sortable="false">
                     <CellTemplate>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
@@ -114,10 +131,15 @@
     private string? _submitError;
     private bool _isSubmitting;
     private TransactionResponse? _result;
+    private bool _isPolling;
+    private CancellationTokenSource? _pollingCts;
 
     private IReadOnlyList<TransactionResponse> _transactions = [];
     private bool _isLoadingTransactions;
     private string? _gridError;
+
+    private static readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan _pollingTimeout = TimeSpan.FromSeconds(30);
 
     protected override async Task OnInitializedAsync()
     {
@@ -222,8 +244,10 @@
                 _model.SourceAccountId!.Value, _model.DestinationAccountId!.Value, _model.Amount!.Value);
 
             _result = await ApiClient.CreateTransactionAsync(request);
-            Snackbar.Add("Transação criada com sucesso.", Severity.Success);
+            Snackbar.Add("Transação criada com sucesso. Status inicial: Pending.", Severity.Success);
             await LoadTransactionsAsync();
+
+            StartPollingStatus(_result.Id);
         }
         catch (ApiException ex)
         {
@@ -237,6 +261,97 @@
         {
             _isSubmitting = false;
         }
+    }
+
+    /// <summary>
+    /// A resposta do POST reflete apenas a persistência síncrona (Pending).
+    /// O processamento em si acontece de forma assíncrona no Worker, então
+    /// fazemos polling simples até a transação alcançar um status final.
+    /// </summary>
+    private void StartPollingStatus(Guid transactionId)
+    {
+        _pollingCts?.Cancel();
+        _pollingCts = new CancellationTokenSource();
+        var ct = _pollingCts.Token;
+
+        _ = PollStatusAsync(transactionId, ct);
+    }
+
+    private async Task PollStatusAsync(Guid transactionId, CancellationToken ct)
+    {
+        _isPolling = true;
+        StateHasChanged();
+
+        var deadline = DateTime.UtcNow.Add(_pollingTimeout);
+
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                TransactionResponse current;
+                try
+                {
+                    current = await ApiClient.GetTransactionByIdAsync(transactionId, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception)
+                {
+                    // Falha transitória na consulta; tenta novamente no próximo ciclo.
+                    await Task.Delay(_pollingInterval, ct);
+                    continue;
+                }
+
+                if (_result?.Id == transactionId)
+                {
+                    _result = current;
+                }
+
+                await LoadTransactionsAsync();
+                await InvokeAsync(StateHasChanged);
+
+                if (current.Status is "Processed" or "Failed")
+                {
+                    return;
+                }
+
+                if (DateTime.UtcNow >= deadline)
+                {
+                    return;
+                }
+
+                await Task.Delay(_pollingInterval, ct);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Polling cancelado (componente descartado ou nova transação criada).
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                _isPolling = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Pending" => Color.Default,
+        "Processing" => Color.Info,
+        "Processed" => Color.Success,
+        "Failed" => Color.Error,
+        _ => Color.Default,
+    };
+
+    public void Dispose()
+    {
+        _pollingCts?.Cancel();
+        _pollingCts?.Dispose();
     }
 
     private sealed class TransactionFormModel

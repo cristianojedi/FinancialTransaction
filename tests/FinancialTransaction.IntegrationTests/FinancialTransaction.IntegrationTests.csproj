@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\FinancialTransaction.Api\FinancialTransaction.Api.csproj" />
     <ProjectReference Include="..\..\src\FinancialTransaction.Infrastructure\FinancialTransaction.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\FinancialTransaction.Worker\FinancialTransaction.Worker.csproj" />
   </ItemGroup>
 
 </Project>

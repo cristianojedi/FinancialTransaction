@@ -24,6 +24,15 @@ public sealed class FinancialApiClient(HttpClient httpClient) : IFinancialApiCli
             ?? throw new ApiException("A API não retornou os dados da transação criada.");
     }
 
+    public async Task<TransactionResponse> GetTransactionByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        using var response = await httpClient.GetAsync($"/api/transactions/{id}", ct);
+        await EnsureSuccessAsync(response, ct);
+
+        return await response.Content.ReadFromJsonAsync<TransactionResponse>(cancellationToken: ct)
+            ?? throw new ApiException("A API não retornou os dados da transação.");
+    }
+
     public async Task<IReadOnlyList<TransactionResponse>> GetTransactionsAsync(CancellationToken ct = default)
     {
         using var response = await httpClient.GetAsync("/api/transactions", ct);
