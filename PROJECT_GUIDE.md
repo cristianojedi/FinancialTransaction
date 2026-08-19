@@ -1275,13 +1275,13 @@ Estudar:
 
 ### Definition of Done
 
-- [ ] ASP.NET Core instrumentado;
-- [ ] HTTP instrumentado;
-- [ ] EF Core instrumentado;
-- [ ] TraceId disponível;
-- [ ] Spans gerados;
-- [ ] Telemetria exportada;
-- [ ] API observável independentemente do Kafka.
+- [x] ASP.NET Core instrumentado;
+- [x] HTTP instrumentado;
+- [x] EF Core instrumentado;
+- [x] TraceId disponível;
+- [x] Spans gerados;
+- [x] Telemetria exportada;
+- [x] API observável independentemente do Kafka.
 
 ### Prompt para IA
 
@@ -2307,7 +2307,7 @@ O projeto estará concluído quando:
 - [ ] Producer funcionando.
 - [ ] Consumer funcionando.
 - [ ] Processamento assíncrono funcionando.
-- [ ] OpenTelemetry configurado na API.
+- [x] OpenTelemetry configurado na API.
 - [ ] OpenTelemetry configurado no Worker.
 - [ ] Kafka Producer instrumentado.
 - [ ] Kafka Consumer instrumentado.

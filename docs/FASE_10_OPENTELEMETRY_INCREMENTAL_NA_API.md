@@ -50,13 +50,15 @@ Estudar:
 
 ### Definition of Done
 
-- [ ] ASP.NET Core instrumentado;
-- [ ] HTTP instrumentado;
-- [ ] EF Core instrumentado;
-- [ ] TraceId disponível;
-- [ ] Spans gerados;
-- [ ] Telemetria exportada;
-- [ ] API observável independentemente do Kafka.
+- [x] ASP.NET Core instrumentado;
+- [x] HTTP instrumentado;
+- [x] EF Core instrumentado;
+- [x] TraceId disponível;
+- [x] Spans gerados;
+- [x] Telemetria exportada;
+- [x] API observável independentemente do Kafka.
+
+> Implementado. Detalhes, pacotes utilizados e passo a passo de validação em [observability.md](observability.md).
 
 ### Prompt para IA
 
