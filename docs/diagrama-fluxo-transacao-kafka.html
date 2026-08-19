@@ -1,0 +1,405 @@
+<title>Pipeline de Transações via Kafka</title>
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --surface: #ffffff;
+    --text: #21251f;
+    --text-muted: #61665c;
+    --border: #d9d5c9;
+    --border-soft: #e6e2d6;
+
+    --api: #5b6169;
+    --api-tint: #eceeef;
+    --application: #285c86;
+    --application-tint: #e6eef4;
+    --domain: #6c4f9e;
+    --domain-tint: #eee9f7;
+    --infra: #2f7a63;
+    --infra-tint: #e6f2ee;
+    --kafka: #a85a1c;
+    --kafka-tint: #f5e9dc;
+    --kafka-strong: #3a2a1c;
+
+    --ok: #2f7a45;
+    --fail: #a1402f;
+
+    --shadow: 0 1px 2px rgba(30, 30, 20, 0.06), 0 6px 20px rgba(30, 30, 20, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #171a16;
+      --surface: #1f2320;
+      --text: #ecebe4;
+      --text-muted: #a2a89b;
+      --border: #383d34;
+      --border-soft: #2b2f27;
+
+      --api: #b9bfc7;
+      --api-tint: #262a2c;
+      --application: #7fb2dd;
+      --application-tint: #1c2b36;
+      --domain: #b79eea;
+      --domain-tint: #2a2338;
+      --infra: #7fcbae;
+      --infra-tint: #172b23;
+      --kafka: #e0973f;
+      --kafka-tint: #2e2013;
+      --kafka-strong: #f0d9bb;
+
+      --ok: #7fc491;
+      --fail: #e08a79;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #171a16;
+    --surface: #1f2320;
+    --text: #ecebe4;
+    --text-muted: #a2a89b;
+    --border: #383d34;
+    --border-soft: #2b2f27;
+
+    --api: #b9bfc7;
+    --api-tint: #262a2c;
+    --application: #7fb2dd;
+    --application-tint: #1c2b36;
+    --domain: #b79eea;
+    --domain-tint: #2a2338;
+    --infra: #7fcbae;
+    --infra-tint: #172b23;
+    --kafka: #e0973f;
+    --kafka-tint: #2e2013;
+    --kafka-strong: #f0d9bb;
+
+    --ok: #7fc491;
+    --fail: #e08a79;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  @font-face {
+    font-family: "Iosevka Web";
+    src: local("Iosevka"), local("JetBrains Mono"), local("Consolas");
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+
+  main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 48px 24px 72px;
+  }
+
+  header {
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    max-width: 62ch;
+    margin: 0 0 28px;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    padding: 12px 16px;
+    margin-bottom: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    flex: none;
+  }
+
+  .diagram-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 8px;
+    overflow-x: auto;
+  }
+
+  figure {
+    margin: 0;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-width: 640px;
+  }
+
+  figcaption {
+    margin-top: 14px;
+    padding: 0 6px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    max-width: 70ch;
+  }
+
+  .diagram-label {
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+
+  .diagram-sub {
+    font-size: 10.5px;
+    font-family: "Iosevka Web", "JetBrains Mono", ui-monospace, Consolas, monospace;
+  }
+
+  .diagram-note {
+    font-size: 11px;
+  }
+
+  .diagram-section {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  footer {
+    margin-top: 28px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .pulse {
+      animation: pulse 2.6s ease-in-out infinite;
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+</style>
+
+<main>
+  <header>
+    <h1>Pipeline de Transações via Kafka</h1>
+    <p class="subtitle">
+      Do <code>POST /api/transactions</code> até a confirmação assíncrona do processamento pelo Worker —
+      as duas travessias em que o sistema só avança depois de confirmar o passo anterior.
+    </p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><span class="swatch" style="background:var(--api)"></span>API</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--application)"></span>Application</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--domain)"></span>Domain</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--infra)"></span>Infrastructure / PostgreSQL</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--kafka)"></span>Kafka</div>
+  </div>
+
+  <div class="diagram-wrap">
+    <figure>
+      <svg viewBox="0 0 1160 1360" role="img" aria-label="Diagrama do fluxo de uma transação financeira: da requisição HTTP, passando pela criação do agregado, gravação no PostgreSQL e publicação no Kafka, até o consumo pelo Worker, o processamento assíncrono e o commit manual do offset.">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+          </marker>
+          <marker id="arrowFail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--fail)" />
+          </marker>
+        </defs>
+
+        <text x="580" y="26" text-anchor="middle" class="diagram-section" fill="var(--text-muted)">PRODUCER — API</text>
+
+        <!-- 1. Client -->
+        <rect x="360" y="38" width="440" height="52" rx="8" fill="var(--api-tint)" stroke="var(--api)" stroke-width="1.4"/>
+        <text x="580" y="59" text-anchor="middle" class="diagram-label" fill="var(--text)">Cliente HTTP</text>
+        <text x="580" y="76" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">POST /api/transactions</text>
+
+        <line x1="580" y1="90" x2="580" y2="118" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- 2. Endpoint -->
+        <rect x="330" y="120" width="500" height="52" rx="8" fill="var(--api-tint)" stroke="var(--api)" stroke-width="1.4"/>
+        <text x="580" y="141" text-anchor="middle" class="diagram-label" fill="var(--text)">TransactionEndpoints.CreateTransactionAsync</text>
+        <text x="580" y="158" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">delega para a Application</text>
+
+        <line x1="580" y1="172" x2="580" y2="200" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- 3. Application -->
+        <rect x="300" y="202" width="560" height="52" rx="8" fill="var(--application-tint)" stroke="var(--application)" stroke-width="1.6"/>
+        <text x="580" y="223" text-anchor="middle" class="diagram-label" fill="var(--text)">TransactionService.CreateAsync</text>
+        <text x="580" y="240" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">valida contas de origem e destino</text>
+
+        <line x1="580" y1="254" x2="580" y2="282" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- spine x range 110-670, notes 710-1100 -->
+
+        <!-- 4. Domain: Create -->
+        <rect x="110" y="284" width="560" height="58" rx="8" fill="var(--domain-tint)" stroke="var(--domain)" stroke-width="1.6"/>
+        <text x="390" y="308" text-anchor="middle" class="diagram-label" fill="var(--text)">FinancialTransaction.Create()</text>
+        <text x="390" y="325" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">valida regras + RaiseDomainEvent</text>
+
+        <line x1="670" y1="313" x2="706" y2="313" stroke="var(--domain)" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arrow)" color="var(--domain)"/>
+        <rect x="710" y="286" width="390" height="54" rx="7" fill="none" stroke="var(--domain)" stroke-width="1.1" stroke-dasharray="2 3"/>
+        <text x="905" y="308" text-anchor="middle" class="diagram-note" fill="var(--domain)">DomainEvents</text>
+        <text x="905" y="324" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">[ TransactionCreated ] — só em memória</text>
+
+        <line x1="390" y1="342" x2="390" y2="368" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- 5. Infra: Save #1 -->
+        <rect x="110" y="370" width="560" height="58" rx="8" fill="var(--infra-tint)" stroke="var(--infra)" stroke-width="1.6"/>
+        <text x="390" y="394" text-anchor="middle" class="diagram-label" fill="var(--text)">SaveChangesAsync()</text>
+        <text x="390" y="411" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">commit no PostgreSQL</text>
+
+        <line x1="670" y1="399" x2="706" y2="399" stroke="var(--infra)" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arrow)" color="var(--infra)"/>
+        <rect x="710" y="372" width="390" height="54" rx="7" fill="none" stroke="var(--infra)" stroke-width="1.1" stroke-dasharray="2 3"/>
+        <text x="905" y="394" text-anchor="middle" class="diagram-note" fill="var(--infra)">PostgreSQL</text>
+        <text x="905" y="410" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">INSERT transactions — status = Pending</text>
+
+        <line x1="390" y1="428" x2="390" y2="454" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- 6. Infra: Publish -->
+        <rect x="110" y="456" width="560" height="58" rx="8" fill="var(--kafka-tint)" stroke="var(--kafka)" stroke-width="1.6"/>
+        <text x="390" y="480" text-anchor="middle" class="diagram-label" fill="var(--text)">KafkaEventPublisher.PublishAsync()</text>
+        <text x="390" y="497" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">só chamado após o commit acima</text>
+
+        <line x1="670" y1="485" x2="706" y2="485" stroke="var(--kafka)" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arrow)" color="var(--kafka)"/>
+        <rect x="710" y="458" width="390" height="54" rx="7" fill="none" stroke="var(--kafka)" stroke-width="1.1" stroke-dasharray="2 3"/>
+        <text x="905" y="480" text-anchor="middle" class="diagram-note" fill="var(--kafka)">Producer</text>
+        <text x="905" y="496" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">key = TransactionId · Acks = All</text>
+
+        <line x1="390" y1="514" x2="390" y2="546" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" color="var(--kafka)"/>
+
+        <!-- Kafka topic band -->
+        <rect x="110" y="548" width="940" height="76" rx="10" fill="var(--kafka)" opacity="0.14" stroke="var(--kafka)" stroke-width="1.8"/>
+        <text x="580" y="580" text-anchor="middle" font-weight="700" font-size="14" fill="var(--kafka-strong)">KAFKA — tópico "transactions"</text>
+        <text x="580" y="600" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">evento TransactionCreated aguardando consumo</text>
+        <rect x="470" y="606" width="60" height="12" rx="2" fill="var(--kafka)" opacity="0.55"/>
+        <rect x="550" y="606" width="60" height="12" rx="2" fill="var(--kafka)" opacity="0.75" class="pulse"/>
+        <rect x="630" y="606" width="60" height="12" rx="2" fill="var(--kafka)" opacity="0.55"/>
+
+        <line x1="580" y1="624" x2="580" y2="654" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" color="var(--kafka)"/>
+
+        <text x="580" y="678" text-anchor="middle" class="diagram-section" fill="var(--text-muted)">CONSUMER — WORKER (processo separado)</text>
+
+        <line x1="580" y1="654" x2="580" y2="690" stroke="none"/>
+
+        <!-- 7. Worker loop -->
+        <rect x="300" y="692" width="560" height="54" rx="8" fill="var(--api-tint)" stroke="var(--api)" stroke-width="1.6"/>
+        <text x="580" y="714" text-anchor="middle" class="diagram-label" fill="var(--text)">Worker.ExecuteAsync</text>
+        <text x="580" y="731" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">loop de consumo · consumer group</text>
+
+        <line x1="580" y1="746" x2="580" y2="774" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- 8. Application 2 -->
+        <rect x="290" y="776" width="580" height="54" rx="8" fill="var(--application-tint)" stroke="var(--application)" stroke-width="1.6"/>
+        <text x="580" y="798" text-anchor="middle" class="diagram-label" fill="var(--text)">TransactionProcessingService.ProcessAsync</text>
+        <text x="580" y="815" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">ignora se já Processed/Failed (idempotência)</text>
+
+        <line x1="580" y1="830" x2="580" y2="858" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- 9. Domain: StartProcessing -->
+        <rect x="110" y="860" width="560" height="56" rx="8" fill="var(--domain-tint)" stroke="var(--domain)" stroke-width="1.6"/>
+        <text x="390" y="883" text-anchor="middle" class="diagram-label" fill="var(--text)">transaction.StartProcessing()</text>
+        <text x="390" y="899" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">só se status ainda era Pending</text>
+
+        <line x1="670" y1="888" x2="706" y2="888" stroke="var(--infra)" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arrow)" color="var(--infra)"/>
+        <rect x="710" y="862" width="390" height="52" rx="7" fill="none" stroke="var(--infra)" stroke-width="1.1" stroke-dasharray="2 3"/>
+        <text x="905" y="883" text-anchor="middle" class="diagram-note" fill="var(--infra)">PostgreSQL</text>
+        <text x="905" y="899" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">status = Processing</text>
+
+        <line x1="390" y1="916" x2="390" y2="942" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- 10. Domain: Complete/Fail branch -->
+        <rect x="110" y="944" width="560" height="56" rx="8" fill="var(--domain-tint)" stroke="var(--domain)" stroke-width="1.6"/>
+        <text x="390" y="967" text-anchor="middle" class="diagram-label" fill="var(--text)">CompleteProcessing() / FailProcessing()</text>
+        <text x="390" y="983" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">reconfere as contas antes de decidir</text>
+
+        <line x1="240" y1="1000" x2="240" y2="1020" stroke="var(--ok)" stroke-width="1.4" marker-end="url(#arrow)" color="var(--ok)"/>
+        <line x1="540" y1="1000" x2="540" y2="1020" stroke="var(--fail)" stroke-width="1.4" marker-end="url(#arrowFail)" color="var(--fail)"/>
+
+        <rect x="140" y="1022" width="200" height="40" rx="7" fill="none" stroke="var(--ok)" stroke-width="1.3"/>
+        <text x="240" y="1046" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ok)">Processed</text>
+
+        <rect x="440" y="1022" width="200" height="40" rx="7" fill="none" stroke="var(--fail)" stroke-width="1.3"/>
+        <text x="540" y="1046" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fail)">Failed</text>
+
+        <line x1="670" y1="972" x2="706" y2="972" stroke="var(--infra)" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arrow)" color="var(--infra)"/>
+        <rect x="710" y="946" width="390" height="52" rx="7" fill="none" stroke="var(--infra)" stroke-width="1.1" stroke-dasharray="2 3"/>
+        <text x="905" y="967" text-anchor="middle" class="diagram-note" fill="var(--infra)">PostgreSQL</text>
+        <text x="905" y="983" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">status = Processed ou Failed</text>
+
+        <line x1="240" y1="1062" x2="240" y2="1080" stroke="var(--text-muted)" stroke-width="1.2"/>
+        <line x1="540" y1="1062" x2="540" y2="1080" stroke="var(--text-muted)" stroke-width="1.2"/>
+        <line x1="240" y1="1080" x2="540" y2="1080" stroke="var(--text-muted)" stroke-width="1.2"/>
+        <line x1="390" y1="1080" x2="390" y2="1102" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrow)" color="var(--text-muted)"/>
+
+        <!-- 11. Infra: Save #2 -->
+        <rect x="110" y="1104" width="560" height="54" rx="8" fill="var(--infra-tint)" stroke="var(--infra)" stroke-width="1.6"/>
+        <text x="390" y="1126" text-anchor="middle" class="diagram-label" fill="var(--text)">SaveChangesAsync()</text>
+        <text x="390" y="1143" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">persiste o status final</text>
+
+        <line x1="390" y1="1158" x2="390" y2="1184" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" color="var(--ok)"/>
+        <text x="410" y="1175" class="diagram-sub" fill="var(--ok)">se OK</text>
+
+        <!-- 12. Commit -->
+        <rect x="110" y="1186" width="560" height="58" rx="8" fill="var(--api-tint)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="390" y="1210" text-anchor="middle" class="diagram-label" fill="var(--text)">_consumer.Commit(consumeResult)</text>
+        <text x="390" y="1227" text-anchor="middle" class="diagram-sub" fill="var(--text-muted)">offset avança — mensagem não é reentregue</text>
+
+        <!-- loop back arrow (success) -->
+        <path d="M 106 1215 C 40 1215, 40 720, 296 719" fill="none" stroke="var(--ok)" stroke-width="1.4" marker-end="url(#arrow)" color="var(--ok)"/>
+        <text x="50" y="975" font-size="10.5" fill="var(--ok)" text-anchor="middle" transform="rotate(-90 50 975)">próxima mensagem</text>
+
+        <!-- exception path (dashed red) from ProcessAsync box back to Worker loop -->
+        <path d="M 875 803 C 1040 803, 1040 705, 864 703" fill="none" stroke="var(--fail)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowFail)" color="var(--fail)"/>
+        <text x="1000" y="750" font-size="10.5" fill="var(--fail)" text-anchor="middle">exceção → offset NÃO</text>
+        <text x="1000" y="763" font-size="10.5" fill="var(--fail)" text-anchor="middle">commitado → reprocessa</text>
+
+      </svg>
+    </figure>
+    <figcaption>
+      As duas travessias do sistema: à esquerda, a cadeia de chamadas (API → Application → Domain → Infrastructure); à direita,
+      o efeito observável de cada etapa. Em ambos os lados — produtor e consumidor — o passo seguinte só acontece depois que o
+      anterior foi confirmado: o Kafka só recebe a mensagem após o INSERT no Postgres ser commitado, e o offset só avança
+      depois que o processamento e o SaveChanges finais tiverem sucesso.
+    </figcaption>
+  </div>
+
+  <footer>
+    FinancialTransaction · fluxo de criação e processamento assíncrono de transações (API + Worker + Kafka + PostgreSQL)
+  </footer>
+</main>
