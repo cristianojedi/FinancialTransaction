@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using FinancialTransaction.Application.Abstractions.Messaging;
 using FinancialTransaction.Application.Abstractions.Persistence;
 using FinancialTransaction.Application.Common.Exceptions;
+using FinancialTransaction.Application.Common.Telemetry;
 using FinancialTransaction.Application.Transactions.Dtos;
 
 namespace FinancialTransaction.Application.Transactions;
@@ -26,6 +28,14 @@ public class TransactionService : ITransactionService
 
     public async Task<TransactionResponse> CreateAsync(CreateTransactionRequest request, CancellationToken cancellationToken = default)
     {
+        using var activity = ApplicationDiagnostics.ActivitySource.StartActivity(
+            "TransactionService.CreateAsync",
+            ActivityKind.Internal);
+
+        activity?.SetTag("transaction.source_account_id", request.SourceAccountId);
+        activity?.SetTag("transaction.destination_account_id", request.DestinationAccountId);
+        activity?.SetTag("transaction.amount", request.Amount);
+
         var sourceAccount = await _accountRepository.GetByIdAsync(request.SourceAccountId, cancellationToken)
             ?? throw new NotFoundException($"Conta de origem '{request.SourceAccountId}' não encontrada.");
 
@@ -46,6 +56,9 @@ public class TransactionService : ITransactionService
         }
 
         transaction.ClearDomainEvents();
+
+        activity?.SetTag("transaction.id", transaction.Id);
+        activity?.SetTag("transaction.status", transaction.Status.ToString());
 
         return TransactionResponse.FromDomain(transaction);
     }
