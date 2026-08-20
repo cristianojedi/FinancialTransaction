@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using FinancialTransaction.Application.Abstractions.Persistence;
 using FinancialTransaction.Application.Common.Exceptions;
+using FinancialTransaction.Application.Common.Telemetry;
 using FinancialTransaction.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
@@ -26,11 +28,21 @@ public class TransactionProcessingService : ITransactionProcessingService
 
     public async Task ProcessAsync(Guid transactionId, CancellationToken cancellationToken = default)
     {
+        // Span de processamento: filho do span de consumo Kafka quando chamado pelo Worker
+        // (Activity.Current fica ambiente), representando a regra de negócio em si.
+        using var activity = ApplicationDiagnostics.ActivitySource.StartActivity(
+            "TransactionProcessingService.ProcessAsync",
+            ActivityKind.Internal);
+
+        activity?.SetTag("transaction.id", transactionId);
+
         var transaction = await _transactionRepository.GetByIdAsync(transactionId, cancellationToken)
             ?? throw new NotFoundException($"Transação '{transactionId}' não encontrada.");
 
         if (transaction.Status is TransactionStatus.Processed or TransactionStatus.Failed)
         {
+            activity?.SetTag("transaction.status", transaction.Status.ToString());
+
             _logger.LogInformation(
                 "Transação {TransactionId} já está no estado final {Status}. Mensagem ignorada.",
                 transactionId,
@@ -58,5 +70,7 @@ public class TransactionProcessingService : ITransactionProcessingService
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        activity?.SetTag("transaction.status", transaction.Status.ToString());
     }
 }

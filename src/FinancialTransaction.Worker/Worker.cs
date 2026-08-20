@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Confluent.Kafka;
 using FinancialTransaction.Application.Transactions;
@@ -71,10 +72,25 @@ public sealed class Worker : BackgroundService
 
     private async Task ProcessMessageAsync(ConsumeResult<string, string> consumeResult, CancellationToken cancellationToken)
     {
+        // Span de consumo: raiz do trace do Worker (independente do trace da API nesta fase).
+        // ActivityKind.Consumer sinaliza que esta operação recebe uma mensagem de um sistema de mensageria.
+        using var activity = WorkerDiagnostics.ActivitySource.StartActivity(
+            $"{_options.TransactionsTopic} consume",
+            ActivityKind.Consumer);
+
+        activity?.SetTag("messaging.system", "kafka");
+        activity?.SetTag("messaging.destination", consumeResult.Topic);
+        activity?.SetTag("messaging.kafka.consumer_group", _options.ConsumerGroupId);
+        activity?.SetTag("messaging.kafka.partition", consumeResult.Partition.Value);
+        activity?.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
+        activity?.SetTag("messaging.kafka.message_key", consumeResult.Message.Key);
+
         try
         {
             var transactionCreated = JsonSerializer.Deserialize<TransactionCreated>(consumeResult.Message.Value)
                 ?? throw new InvalidOperationException("Mensagem Kafka vazia ou inválida.");
+
+            activity?.SetTag("transaction.id", transactionCreated.TransactionId);
 
             using var scope = _scopeFactory.CreateScope();
             var processingService = scope.ServiceProvider.GetRequiredService<ITransactionProcessingService>();
@@ -91,6 +107,8 @@ public sealed class Worker : BackgroundService
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+
             _logger.LogError(
                 ex,
                 "Falha ao processar mensagem (partition {Partition}, offset {Offset}). Offset não será commitado; a mensagem será reprocessada.",

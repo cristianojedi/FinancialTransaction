@@ -1381,12 +1381,12 @@ Estudar:
 
 ### Definition of Done
 
-- [ ] Worker instrumentado;
-- [ ] Kafka Consumer instrumentado;
-- [ ] processamento instrumentado;
-- [ ] PostgreSQL instrumentado;
-- [ ] Trace gerado pelo Worker;
-- [ ] Trace independente da API.
+- [x] Worker instrumentado;
+- [x] Kafka Consumer instrumentado;
+- [x] processamento instrumentado;
+- [x] PostgreSQL instrumentado;
+- [x] Trace gerado pelo Worker;
+- [x] Trace independente da API.
 
 ### Prompt para IA
 
@@ -2308,7 +2308,7 @@ O projeto estará concluído quando:
 - [ ] Consumer funcionando.
 - [ ] Processamento assíncrono funcionando.
 - [x] OpenTelemetry configurado na API.
-- [ ] OpenTelemetry configurado no Worker.
+- [x] OpenTelemetry configurado no Worker.
 - [ ] Kafka Producer instrumentado.
 - [ ] Kafka Consumer instrumentado.
 - [ ] Trace distribuído funcionando.
