@@ -1699,12 +1699,15 @@ Estudar:
 
 ### Definition of Done
 
-- [ ] Collector em Docker;
-- [ ] API envia telemetria;
-- [ ] Worker envia telemetria;
-- [ ] Collector recebe;
-- [ ] pipeline configurado;
-- [ ] configuração documentada.
+- [x] Collector em Docker;
+- [x] API envia telemetria;
+- [x] Worker envia telemetria;
+- [x] Collector recebe;
+- [x] pipeline configurado;
+- [x] configuração documentada.
+
+> Implementado. Detalhes, configuração do Collector e passo a passo de validação em
+> [otel-collector.md](otel-collector.md).
 
 ### Prompt para IA
 
@@ -2313,7 +2316,7 @@ O projeto estará concluído quando:
 - [x] Kafka Consumer instrumentado.
 - [x] Trace distribuído funcionando.
 - [x] TraceId propagado através do Kafka.
-- [ ] OpenTelemetry Collector funcionando.
+- [x] OpenTelemetry Collector funcionando.
 - [ ] Prometheus funcionando.
 - [ ] Grafana funcionando.
 - [ ] Jaeger/Tempo funcionando.

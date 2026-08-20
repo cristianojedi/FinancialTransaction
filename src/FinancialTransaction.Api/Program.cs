@@ -6,12 +6,15 @@ using FinancialTransaction.Application.Common.Telemetry;
 using FinancialTransaction.Infrastructure;
 using FinancialTransaction.Infrastructure.Messaging;
 using FinancialTransaction.Infrastructure.Persistence;
+using OpenTelemetry.Exporter;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 const string ServiceName = "FinancialTransaction.Api";
 
 var builder = WebApplication.CreateBuilder(args);
+
+var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"] ?? "http://localhost:4318/v1/traces";
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -24,8 +27,9 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // OpenTelemetry — instrumentação desta API (HTTP recebido, HttpClient de saída, EF Core/PostgreSQL e publicação Kafka).
 // O span de publicação Kafka (InfrastructureDiagnostics) injeta o traceparent nos headers da mensagem,
-// permitindo que o Worker continue o mesmo trace ao consumir. Sem Collector/Jaeger nesta fase:
-// os traces são exportados para o Console para validação local.
+// permitindo que o Worker continue o mesmo trace ao consumir. A partir da Fase 13, os traces são exportados
+// via OTLP/HTTP para o OpenTelemetry Collector (infrastructure/docker/observability/otel-collector-config.yaml),
+// que os imprime no próprio log (exporter "debug") — ainda sem Jaeger/Tempo/Grafana, que chegam na Fase 14.
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(serviceName: ServiceName))
     .WithTracing(tracing => tracing
@@ -35,7 +39,11 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddEntityFrameworkCoreInstrumentation()
-        .AddConsoleExporter());
+        .AddOtlpExporter(otlp =>
+        {
+            otlp.Endpoint = new Uri(otlpEndpoint);
+            otlp.Protocol = OtlpExportProtocol.HttpProtobuf;
+        }));
 
 var app = builder.Build();
 

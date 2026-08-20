@@ -1,0 +1,51 @@
+# Configuração do OpenTelemetry Collector — Fase 13.
+#
+# Escopo desta fase: apenas provar que API e Worker conseguem falar OTLP com o Collector e que o Collector
+# recebe, processa (batch + resource) e exporta (debug/console) os traces. Backends reais (Jaeger/Tempo,
+# Prometheus, Grafana) só entram na Fase 14 — por isso o único exporter aqui é o "debug", que imprime os
+# spans recebidos no log do próprio container do Collector.
+
+receivers:
+  # Receiver OTLP: aceita telemetria (traces, metrics e logs) via gRPC (4317) e HTTP/protobuf (4318).
+  # API e Worker usam o protocolo HTTP/protobuf (porta 4318) nesta fase, por ser mais simples de configurar
+  # localmente do que gRPC em texto claro (cleartext).
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch Processor: agrupa spans/métricas/logs antes de exportar, em vez de fazer uma chamada de rede por
+  # item individual. Reduz overhead de rede e é a prática recomendada em qualquer pipeline de produção.
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+  # Resource Processor: adiciona/normaliza Resource Attributes em tudo que passa pelo pipeline — aqui,
+  # marca a origem dos dados como ambiente local de desenvolvimento, distinto de um futuro deployment.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: local
+        action: upsert
+
+exporters:
+  # Debug Exporter: imprime a telemetria recebida no stdout do próprio Collector. É o "console exporter"
+  # da aplicação, só que do lado do Collector — usado nesta fase apenas para validar que o Collector está
+  # recebendo dados de API e Worker. Será substituído/complementado por exporters reais (OTLP para
+  # Jaeger/Tempo, Prometheus) na Fase 14.
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [debug]
+
+  telemetry:
+    logs:
+      level: info
