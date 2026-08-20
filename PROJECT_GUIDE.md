@@ -1543,13 +1543,13 @@ TraceId = ABC123
 
 ### Definition of Done
 
-- [ ] Producer cria Span;
-- [ ] Trace Context é inserido nos headers;
-- [ ] Consumer extrai Trace Context;
-- [ ] Worker continua o contexto;
-- [ ] API e Worker podem ser correlacionados;
-- [ ] Trace completo visualizável;
-- [ ] Kafka aparece no fluxo distribuído.
+- [x] Producer cria Span;
+- [x] Trace Context é inserido nos headers;
+- [x] Consumer extrai Trace Context;
+- [x] Worker continua o contexto;
+- [x] API e Worker podem ser correlacionados;
+- [x] Trace completo visualizável;
+- [x] Kafka aparece no fluxo distribuído.
 
 ### Prompt para IA
 
@@ -2309,10 +2309,10 @@ O projeto estará concluído quando:
 - [ ] Processamento assíncrono funcionando.
 - [x] OpenTelemetry configurado na API.
 - [x] OpenTelemetry configurado no Worker.
-- [ ] Kafka Producer instrumentado.
-- [ ] Kafka Consumer instrumentado.
-- [ ] Trace distribuído funcionando.
-- [ ] TraceId propagado através do Kafka.
+- [x] Kafka Producer instrumentado.
+- [x] Kafka Consumer instrumentado.
+- [x] Trace distribuído funcionando.
+- [x] TraceId propagado através do Kafka.
 - [ ] OpenTelemetry Collector funcionando.
 - [ ] Prometheus funcionando.
 - [ ] Grafana funcionando.

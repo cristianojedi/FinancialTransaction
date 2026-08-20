@@ -4,6 +4,7 @@ using FinancialTransaction.Api.ExceptionHandling;
 using FinancialTransaction.Application;
 using FinancialTransaction.Application.Common.Telemetry;
 using FinancialTransaction.Infrastructure;
+using FinancialTransaction.Infrastructure.Messaging;
 using FinancialTransaction.Infrastructure.Persistence;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -21,13 +22,16 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
-// OpenTelemetry — instrumentação SOMENTE desta API (HTTP recebido, HttpClient de saída e EF Core/PostgreSQL).
-// Sem Collector/Jaeger nesta fase: os traces são exportados para o Console para validação local.
+// OpenTelemetry — instrumentação desta API (HTTP recebido, HttpClient de saída, EF Core/PostgreSQL e publicação Kafka).
+// O span de publicação Kafka (InfrastructureDiagnostics) injeta o traceparent nos headers da mensagem,
+// permitindo que o Worker continue o mesmo trace ao consumir. Sem Collector/Jaeger nesta fase:
+// os traces são exportados para o Console para validação local.
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(serviceName: ServiceName))
     .WithTracing(tracing => tracing
         .AddSource(ServiceName)
         .AddSource(ApplicationDiagnostics.SourceName)
+        .AddSource(InfrastructureDiagnostics.SourceName)
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddEntityFrameworkCoreInstrumentation()

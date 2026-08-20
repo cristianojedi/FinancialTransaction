@@ -288,7 +288,8 @@ operação distribuída (uma única requisição `POST /api/transactions`). Para
 ## 4. Fora do escopo desta fase (propositalmente)
 
 - OpenTelemetry no `FinancialTransaction.Worker` (Fase 11).
-- Propagação de contexto de trace através dos headers do Kafka (Fase 12).
+- Propagação de contexto de trace através dos headers do Kafka (Fase 12 — ver
+  [distributed-tracing.md](distributed-tracing.md)).
 - OpenTelemetry Collector (Fase 13).
 - Prometheus, Grafana, Jaeger/Tempo (Fase 14).
 

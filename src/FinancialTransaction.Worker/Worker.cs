@@ -1,10 +1,13 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
 using FinancialTransaction.Application.Transactions;
 using FinancialTransaction.Domain.Events;
 using FinancialTransaction.Infrastructure.Messaging;
 using Microsoft.Extensions.Options;
+using OpenTelemetry;
+using OpenTelemetry.Context.Propagation;
 
 namespace FinancialTransaction.Worker;
 
@@ -72,11 +75,22 @@ public sealed class Worker : BackgroundService
 
     private async Task ProcessMessageAsync(ConsumeResult<string, string> consumeResult, CancellationToken cancellationToken)
     {
-        // Span de consumo: raiz do trace do Worker (independente do trace da API nesta fase).
+        // Extract: lê o traceparent (e o baggage, se houver) dos headers Kafka gravados pelo Producer.
+        // Se a mensagem não trouxer traceparent (ex.: publicada antes desta fase), ActivityContext fica default
+        // e o StartActivity abaixo se comporta como antes, iniciando um trace novo.
+        var propagationContext = Propagators.DefaultTextMapPropagator.Extract(
+            default,
+            consumeResult.Message.Headers,
+            ExtractHeaderValues);
+
+        Baggage.Current = propagationContext.Baggage;
+
+        // Span de consumo: continua o trace da API através do contexto extraído dos headers Kafka.
         // ActivityKind.Consumer sinaliza que esta operação recebe uma mensagem de um sistema de mensageria.
         using var activity = WorkerDiagnostics.ActivitySource.StartActivity(
             $"{_options.TransactionsTopic} consume",
-            ActivityKind.Consumer);
+            ActivityKind.Consumer,
+            propagationContext.ActivityContext);
 
         activity?.SetTag("messaging.system", "kafka");
         activity?.SetTag("messaging.destination", consumeResult.Topic);
@@ -114,6 +128,14 @@ public sealed class Worker : BackgroundService
                 "Falha ao processar mensagem (partition {Partition}, offset {Offset}). Offset não será commitado; a mensagem será reprocessada.",
                 consumeResult.Partition.Value,
                 consumeResult.Offset.Value);
+        }
+    }
+
+    private static IEnumerable<string> ExtractHeaderValues(Headers headers, string key)
+    {
+        if (headers.TryGetLastBytes(key, out var value))
+        {
+            yield return Encoding.UTF8.GetString(value);
         }
     }
 

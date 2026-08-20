@@ -14,9 +14,10 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddHostedService<Worker>();
 
-// OpenTelemetry — instrumentação SOMENTE deste Worker (consumo Kafka, processamento da transação e EF Core/PostgreSQL).
-// Trace independente do trace da API nesta fase: ainda não há propagação de contexto através do Kafka.
-// Sem Collector/Jaeger: os traces são exportados para o Console para validação local.
+// OpenTelemetry — instrumentação deste Worker (consumo Kafka, processamento da transação e EF Core/PostgreSQL).
+// O span de consumo (WorkerDiagnostics) extrai o traceparent dos headers Kafka gravados pelo Producer da API,
+// continuando o mesmo trace distribuído em vez de iniciar um trace novo. Sem Collector/Jaeger: os traces são
+// exportados para o Console para validação local.
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(serviceName: ServiceName))
     .WithTracing(tracing => tracing

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
@@ -6,6 +7,8 @@ using FinancialTransaction.Domain.Common;
 using FinancialTransaction.Domain.Events;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OpenTelemetry;
+using OpenTelemetry.Context.Propagation;
 
 namespace FinancialTransaction.Infrastructure.Messaging;
 
@@ -30,6 +33,22 @@ public sealed class KafkaEventPublisher : IEventPublisher, IDisposable
         var (topic, key) = Resolve(domainEvent);
         var eventType = domainEvent.GetType();
 
+        // Span de publicação (ActivityKind.Producer): filho do trace atual (ex.: TransactionService.CreateAsync)
+        // e ponto de partida do trace distribuído que o Worker vai continuar ao consumir a mensagem.
+        using var activity = InfrastructureDiagnostics.ActivitySource.StartActivity(
+            $"{topic} publish",
+            ActivityKind.Producer);
+
+        activity?.SetTag("messaging.system", "kafka");
+        activity?.SetTag("messaging.destination", topic);
+        activity?.SetTag("messaging.kafka.message_key", key);
+        activity?.SetTag("event.type", eventType.Name);
+
+        if (domainEvent is TransactionCreated transactionCreated)
+        {
+            activity?.SetTag("transaction.id", transactionCreated.TransactionId);
+        }
+
         var message = new Message<string, string>
         {
             Key = key,
@@ -40,9 +59,17 @@ public sealed class KafkaEventPublisher : IEventPublisher, IDisposable
             },
         };
 
+        // Inject: grava o traceparent (e, se houver, o baggage) do span atual nos headers Kafka.
+        // Sem isso, a mensagem chega ao Worker sem nenhuma informação de trace e o Consumer inicia um trace novo e desconectado.
+        var propagationContext = new PropagationContext(Activity.Current?.Context ?? default, Baggage.Current);
+        Propagators.DefaultTextMapPropagator.Inject(propagationContext, message.Headers, InjectHeader);
+
         try
         {
             var result = await _producer.ProduceAsync(topic, message, cancellationToken);
+
+            activity?.SetTag("messaging.kafka.partition", result.Partition.Value);
+            activity?.SetTag("messaging.kafka.offset", result.Offset.Value);
 
             _logger.LogInformation(
                 "Evento {EventType} publicado no topic {Topic} (partition {Partition}, offset {Offset}).",
@@ -53,6 +80,8 @@ public sealed class KafkaEventPublisher : IEventPublisher, IDisposable
         }
         catch (ProduceException<string, string> ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+
             _logger.LogError(
                 ex,
                 "Falha ao publicar evento {EventType} no topic {Topic}: {Reason}.",
@@ -62,6 +91,9 @@ public sealed class KafkaEventPublisher : IEventPublisher, IDisposable
             throw;
         }
     }
+
+    private static void InjectHeader(Headers headers, string key, string value) =>
+        headers.Add(key, Encoding.UTF8.GetBytes(value));
 
     private (string Topic, string Key) Resolve(IDomainEvent domainEvent) => domainEvent switch
     {
