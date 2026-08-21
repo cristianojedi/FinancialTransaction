@@ -1,0 +1,16 @@
+# Provisionamento automático de dashboards do Grafana — Fase 14.
+# Aponta para o diretório montado em /etc/grafana/dashboards (ver docker-compose.yml), onde ficam os
+# arquivos JSON dos dashboards versionados em infrastructure/docker/observability/grafana/dashboards.
+apiVersion: 1
+
+providers:
+  - name: FinancialTransaction
+    orgId: 1
+    folder: FinancialTransaction
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false

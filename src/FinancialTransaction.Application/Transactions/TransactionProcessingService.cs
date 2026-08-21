@@ -36,6 +36,8 @@ public class TransactionProcessingService : ITransactionProcessingService
 
         activity?.SetTag("transaction.id", transactionId);
 
+        var stopwatch = Stopwatch.StartNew();
+
         var transaction = await _transactionRepository.GetByIdAsync(transactionId, cancellationToken)
             ?? throw new NotFoundException($"Transação '{transactionId}' não encontrada.");
 
@@ -72,5 +74,9 @@ public class TransactionProcessingService : ITransactionProcessingService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         activity?.SetTag("transaction.status", transaction.Status.ToString());
+
+        ApplicationMetrics.TransactionsProcessed.Add(1,
+            new KeyValuePair<string, object?>("status", transaction.Status.ToString()));
+        ApplicationMetrics.TransactionProcessingDuration.Record(stopwatch.Elapsed.TotalMilliseconds);
     }
 }

@@ -77,6 +77,9 @@ public sealed class KafkaEventPublisher : IEventPublisher, IDisposable
                 topic,
                 result.Partition.Value,
                 result.Offset.Value);
+
+            InfrastructureMetrics.KafkaMessagesPublished.Add(1,
+                new KeyValuePair<string, object?>("topic", topic));
         }
         catch (ProduceException<string, string> ex)
         {
@@ -88,6 +91,9 @@ public sealed class KafkaEventPublisher : IEventPublisher, IDisposable
                 eventType.Name,
                 topic,
                 ex.Error.Reason);
+
+            InfrastructureMetrics.KafkaPublishErrors.Add(1,
+                new KeyValuePair<string, object?>("topic", topic));
             throw;
         }
     }

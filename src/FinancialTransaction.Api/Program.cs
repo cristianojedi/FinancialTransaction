@@ -7,6 +7,7 @@ using FinancialTransaction.Infrastructure;
 using FinancialTransaction.Infrastructure.Messaging;
 using FinancialTransaction.Infrastructure.Persistence;
 using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
@@ -14,7 +15,10 @@ const string ServiceName = "FinancialTransaction.Api";
 
 var builder = WebApplication.CreateBuilder(args);
 
-var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"] ?? "http://localhost:4318/v1/traces";
+// Endpoint base do Collector (sem sufixo de sinal) — cada exporter OTLP abaixo anexa /v1/traces ou /v1/metrics,
+// pois o sufixo não é anexado automaticamente quando o Endpoint é definido em código (só quando configurado via
+// a variável de ambiente OTEL_EXPORTER_OTLP_ENDPOINT).
+var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"] ?? "http://localhost:4318";
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -27,9 +31,10 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // OpenTelemetry — instrumentação desta API (HTTP recebido, HttpClient de saída, EF Core/PostgreSQL e publicação Kafka).
 // O span de publicação Kafka (InfrastructureDiagnostics) injeta o traceparent nos headers da mensagem,
-// permitindo que o Worker continue o mesmo trace ao consumir. A partir da Fase 13, os traces são exportados
-// via OTLP/HTTP para o OpenTelemetry Collector (infrastructure/docker/observability/otel-collector-config.yaml),
-// que os imprime no próprio log (exporter "debug") — ainda sem Jaeger/Tempo/Grafana, que chegam na Fase 14.
+// permitindo que o Worker continue o mesmo trace ao consumir. Desde a Fase 13, traces e (a partir da Fase 14)
+// métricas são exportados via OTLP/HTTP para o OpenTelemetry Collector
+// (infrastructure/docker/observability/otel-collector-config.yaml), que reexporta traces para o Jaeger e
+// métricas para o Prometheus, ambos consultados pelo Grafana.
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(serviceName: ServiceName))
     .WithTracing(tracing => tracing
@@ -41,7 +46,17 @@ builder.Services.AddOpenTelemetry()
         .AddEntityFrameworkCoreInstrumentation()
         .AddOtlpExporter(otlp =>
         {
-            otlp.Endpoint = new Uri(otlpEndpoint);
+            otlp.Endpoint = new Uri($"{otlpEndpoint}/v1/traces");
+            otlp.Protocol = OtlpExportProtocol.HttpProtobuf;
+        }))
+    .WithMetrics(metrics => metrics
+        .AddMeter(ApplicationMetrics.MeterName)
+        .AddMeter(InfrastructureMetrics.MeterName)
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter(otlp =>
+        {
+            otlp.Endpoint = new Uri($"{otlpEndpoint}/v1/metrics");
             otlp.Protocol = OtlpExportProtocol.HttpProtobuf;
         }));
 

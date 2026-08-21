@@ -1,0 +1,19 @@
+# Configuração do Prometheus — Fase 14.
+#
+# O Prometheus não recebe push de métricas: ele faz scrape (pull) periódico de um endpoint HTTP que expõe
+# métricas no seu formato de texto. Aqui o único alvo é o próprio OpenTelemetry Collector, que expõe esse
+# endpoint via o exporter "prometheus" configurado em otel-collector-config.yaml.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: otel-collector
+    # honor_labels: true faz o Prometheus preservar os labels "job"/"instance" já presentes nas métricas
+    # expostas pelo Collector (derivados de service.name/service.instance.id via resource_to_telemetry_conversion
+    # em otel-collector-config.yaml) em vez de sobrescrevê-los com "otel-collector" (o job_name abaixo) — sem
+    # isso, todas as métricas de todos os serviços apareceriam com job="otel-collector" e o valor original
+    # ficaria só em "exported_job".
+    honor_labels: true
+    static_configs:
+      - targets: ["otel-collector:8889"]

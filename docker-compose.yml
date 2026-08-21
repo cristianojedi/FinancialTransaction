@@ -66,14 +66,60 @@ services:
       - financialtransaction-network
 
   otel-collector:
-    image: otel/opentelemetry-collector:0.116.1
+    image: otel/opentelemetry-collector-contrib:0.116.1
     container_name: financialtransaction_otel_collector
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
       - ./infrastructure/docker/observability/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
     ports:
       - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP/protobuf — usado pela Api e pelo Worker nesta fase
+      - "4318:4318" # OTLP HTTP/protobuf — usado pela Api e pelo Worker
+      - "8889:8889" # Prometheus exporter — scrapeado pelo Prometheus
+    depends_on:
+      - jaeger
+    networks:
+      - financialtransaction-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: financialtransaction_jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # Jaeger UI
+    networks:
+      - financialtransaction-network
+
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    container_name: financialtransaction_prometheus
+    volumes:
+      - ./infrastructure/docker/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - financialtransaction-prometheus-data:/prometheus
+    ports:
+      - "9090:9090" # Prometheus UI
+    depends_on:
+      - otel-collector
+    networks:
+      - financialtransaction-network
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: financialtransaction_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./infrastructure/docker/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/docker/observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - financialtransaction-grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000" # Grafana UI
+    depends_on:
+      - prometheus
+      - jaeger
     networks:
       - financialtransaction-network
 
@@ -84,3 +130,5 @@ networks:
 volumes:
   financialtransaction-postgres-data:
   financialtransaction-kafka-data:
+  financialtransaction-prometheus-data:
+  financialtransaction-grafana-data:

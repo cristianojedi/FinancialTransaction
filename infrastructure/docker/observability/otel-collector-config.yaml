@@ -1,13 +1,16 @@
-# Configuração do OpenTelemetry Collector — Fase 13.
+# Configuração do OpenTelemetry Collector — Fase 14.
 #
-# Escopo desta fase: apenas provar que API e Worker conseguem falar OTLP com o Collector e que o Collector
-# recebe, processa (batch + resource) e exporta (debug/console) os traces. Backends reais (Jaeger/Tempo,
-# Prometheus, Grafana) só entram na Fase 14 — por isso o único exporter aqui é o "debug", que imprime os
-# spans recebidos no log do próprio container do Collector.
+# A partir desta fase o Collector deixa de apenas imprimir a telemetria no próprio log (exporter "debug",
+# introduzido na Fase 13) e passa a reexportar para backends reais:
+#   - traces  -> Jaeger, via OTLP/gRPC (Jaeger aceita OTLP nativamente desde a v1.35);
+#   - metrics -> Prometheus, via exporter "prometheus" (expõe um endpoint /metrics que o Prometheus faz scrape).
+# O exporter "debug" é mantido em ambos os pipelines — útil para depurar localmente sem precisar abrir Jaeger/
+# Prometheus. Usa a imagem "contrib" porque o exporter "prometheus" (formato de métricas Prometheus, distinto do
+# exporter "otlp/otlphttp" genérico) não faz parte da imagem "core" usada na Fase 13.
 
 receivers:
   # Receiver OTLP: aceita telemetria (traces, metrics e logs) via gRPC (4317) e HTTP/protobuf (4318).
-  # API e Worker usam o protocolo HTTP/protobuf (porta 4318) nesta fase, por ser mais simples de configurar
+  # API e Worker usam o protocolo HTTP/protobuf (porta 4318), por ser mais simples de configurar
   # localmente do que gRPC em texto claro (cleartext).
   otlp:
     protocols:
@@ -32,19 +35,38 @@ processors:
         action: upsert
 
 exporters:
-  # Debug Exporter: imprime a telemetria recebida no stdout do próprio Collector. É o "console exporter"
-  # da aplicação, só que do lado do Collector — usado nesta fase apenas para validar que o Collector está
-  # recebendo dados de API e Worker. Será substituído/complementado por exporters reais (OTLP para
-  # Jaeger/Tempo, Prometheus) na Fase 14.
+  # Debug Exporter: imprime a telemetria recebida no stdout do próprio Collector. Mantido desde a Fase 13
+  # para depuração local rápida (docker compose logs otel-collector), em paralelo aos backends reais abaixo.
   debug:
-    verbosity: detailed
+    verbosity: basic
+
+  # OTLP/gRPC para o Jaeger: o Jaeger all-in-one expõe um receiver OTLP nativo em 4317, então o Collector só
+  # precisa falar OTLP "puro" com ele — sem exporter dedicado ao formato interno do Jaeger (jaeger-thrift), que
+  # está deprecado no ecossistema OpenTelemetry.
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Prometheus Exporter: NÃO envia dados para um Prometheus — ele mesmo vira um endpoint de scrape
+  # (http://otel-collector:8889/metrics) no formato de texto do Prometheus. É o Prometheus (serviço separado)
+  # quem periodicamente busca (pull) esses dados, conforme configurado em prometheus.yml.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [resource, batch]
-      exporters: [debug]
+      exporters: [debug, otlp/jaeger]
+
+    metrics:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [debug, prometheus]
 
   telemetry:
     logs:

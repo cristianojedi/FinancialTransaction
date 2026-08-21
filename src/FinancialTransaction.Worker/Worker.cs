@@ -99,6 +99,11 @@ public sealed class Worker : BackgroundService
         activity?.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
         activity?.SetTag("messaging.kafka.message_key", consumeResult.Message.Key);
 
+        var stopwatch = Stopwatch.StartNew();
+
+        WorkerMetrics.KafkaMessagesConsumed.Add(1,
+            new KeyValuePair<string, object?>("topic", consumeResult.Topic));
+
         try
         {
             var transactionCreated = JsonSerializer.Deserialize<TransactionCreated>(consumeResult.Message.Value)
@@ -128,6 +133,13 @@ public sealed class Worker : BackgroundService
                 "Falha ao processar mensagem (partition {Partition}, offset {Offset}). Offset não será commitado; a mensagem será reprocessada.",
                 consumeResult.Partition.Value,
                 consumeResult.Offset.Value);
+
+            WorkerMetrics.ProcessingErrors.Add(1,
+                new KeyValuePair<string, object?>("topic", consumeResult.Topic));
+        }
+        finally
+        {
+            WorkerMetrics.MessageProcessingDuration.Record(stopwatch.Elapsed.TotalMilliseconds);
         }
     }
 

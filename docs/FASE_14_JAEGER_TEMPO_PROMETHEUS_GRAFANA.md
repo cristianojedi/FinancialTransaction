@@ -38,12 +38,15 @@ Worker ────────────┼──► OpenTelemetry Collector
 
 ### Definition of Done
 
-- [ ] Traces disponíveis;
-- [ ] Metrics disponíveis;
-- [ ] Grafana configurado;
-- [ ] Datasources configurados;
-- [ ] Trace completo visualizável;
-- [ ] dashboards iniciais.
+- [x] Traces disponíveis;
+- [x] Metrics disponíveis;
+- [x] Grafana configurado;
+- [x] Datasources configurados;
+- [x] Trace completo visualizável;
+- [x] dashboards iniciais.
+
+> Implementado. Detalhes, configuração de Collector/Prometheus/Grafana e passo a passo de investigação de uma
+> transação por TraceId em [observability-backends.md](observability-backends.md).
 
 ### Prompt para IA
 

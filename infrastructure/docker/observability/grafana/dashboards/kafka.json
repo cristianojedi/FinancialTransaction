@@ -1,0 +1,63 @@
+{
+  "title": "FinancialTransaction — Kafka",
+  "uid": "ft-kafka",
+  "tags": ["financialtransaction", "kafka"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Mensagens publicadas (Api / Producer)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(financial_transaction_kafka_messages_published_total[1m])) by (topic)",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "title": "Mensagens consumidas (Worker / Consumer)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(financial_transaction_kafka_messages_consumed_total[1m])) by (topic)",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "title": "Publicado vs. Consumido (acumulado)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(financial_transaction_kafka_messages_published_total) by (topic)",
+          "legendFormat": "publicadas — {{topic}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(financial_transaction_kafka_messages_consumed_total) by (topic)",
+          "legendFormat": "consumidas — {{topic}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "description": "Não há painel de Consumer Lag: exigiria um exportador adicional (ex.: kminion) lendo os offsets do Consumer Group no Kafka, fora do escopo desta fase. Este painel aproxima o lag comparando o total publicado com o total consumido."
+    }
+  ]
+}

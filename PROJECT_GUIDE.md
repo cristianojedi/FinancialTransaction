@@ -1795,12 +1795,14 @@ Worker ────────────┼──► OpenTelemetry Collector
 
 ### Definition of Done
 
-- [ ] Traces disponíveis;
-- [ ] Metrics disponíveis;
-- [ ] Grafana configurado;
-- [ ] Datasources configurados;
-- [ ] Trace completo visualizável;
-- [ ] dashboards iniciais.
+- [x] Traces disponíveis;
+- [x] Metrics disponíveis;
+- [x] Grafana configurado;
+- [x] Datasources configurados;
+- [x] Trace completo visualizável;
+- [x] dashboards iniciais.
+
+> Implementado. Detalhes em [observability-backends.md](observability-backends.md).
 
 ### Prompt para IA
 
@@ -2317,9 +2319,9 @@ O projeto estará concluído quando:
 - [x] Trace distribuído funcionando.
 - [x] TraceId propagado através do Kafka.
 - [x] OpenTelemetry Collector funcionando.
-- [ ] Prometheus funcionando.
-- [ ] Grafana funcionando.
-- [ ] Jaeger/Tempo funcionando.
+- [x] Prometheus funcionando.
+- [x] Grafana funcionando.
+- [x] Jaeger/Tempo funcionando.
 - [ ] Logs estruturados funcionando.
 - [ ] Logs correlacionados com TraceId.
 - [ ] Retry funcionando.

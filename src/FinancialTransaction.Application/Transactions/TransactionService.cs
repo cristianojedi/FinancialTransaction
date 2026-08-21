@@ -60,6 +60,8 @@ public class TransactionService : ITransactionService
         activity?.SetTag("transaction.id", transaction.Id);
         activity?.SetTag("transaction.status", transaction.Status.ToString());
 
+        ApplicationMetrics.TransactionsCreated.Add(1);
+
         return TransactionResponse.FromDomain(transaction);
     }
 
